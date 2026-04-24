@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Node Graph Analyzer</title>
+
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #0d1117;
+  --surface: #161b22;
+  --glass: #161b22;
+  --border: #30363d;
+  --accent: #3b82f6;
+  --accent2: #22c55e;
+  --danger: #ef4444;
+  --warn: #f59e0b;
+  --text: #e6edf3;
+  --muted: #8b949e;
+}
+
+body {
+  font-family: 'Inter', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  padding: 30px;
+}
+
+/* HEADER */
+header {
+  text-align: center;
+  margin-bottom: 40px;
+}
+
+header h1 {
+  font-size: 2.3rem;
+  color: var(--text);
+}
+
+header p {
+  color: var(--muted);
+  margin-top: 8px;
+}
+
+/* CONTAINER */
+.container {
+  max-width: 1100px;
+  margin: auto;
+}
+
+/* CARD */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 22px;
+  margin-bottom: 20px;
+}
+
+/* TEXTAREA */
+textarea {
+  width: 100%;
+  background: #0d1117;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px;
+  color: var(--text);
+  font-family: monospace;
+}
+
+textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+/* BUTTONS */
+.btn-row {
+  display: flex;
+  gap: 10px;
+  margin-top: 15px;
+}
+
+button {
+  padding: 10px 18px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  cursor: pointer;
+  font-weight: 600;
+  background: var(--surface);
+  color: var(--text);
+}
+
+button:hover {
+  background: #21262d;
+}
+
+.primary {
+  background: var(--accent);
+  color: white;
+  border: none;
+}
+
+.primary:hover {
+  background: #2563eb;
+}
+
+.secondary {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.ghost {
+  color: var(--muted);
+}
+
+/* SUMMARY */
+.summary {
+  display: grid;
+  grid-template-columns: repeat(3,1fr);
+  gap: 12px;
+}
+
+.summary-card {
+  background: var(--surface);
+  padding: 16px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  text-align: center;
+}
+
+.summary-card h2 {
+  font-size: 1.8rem;
+  color: var(--accent);
+}
+
+/* TREE */
+.tree {
+  border-left: 4px solid var(--accent2);
+  padding: 16px;
+  margin-bottom: 12px;
+  background: var(--surface);
+  border-radius: 10px;
+}
+
+.tree.cycle {
+  border-left-color: var(--danger);
+}
+
+.visual {
+  margin-top: 10px;
+  font-family: monospace;
+  background: #0d1117;
+  padding: 10px;
+  border-radius: 6px;
+  white-space: pre;
+}
+
+/* PILLS */
+.pill {
+  display: inline-block;
+  padding: 6px 10px;
+  margin: 5px;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  background: #21262d;
+}
+
+.invalid { color: var(--danger); }
+.dup { color: var(--warn); }
+
+</style>
+</head>
+
+<body>
+
+<header>
+  <h1>Graph Hierarchy Analyzer</h1>
+  <p>Advanced visualization of node relationships</p>
+</header>
+
+<div class="container">
+
+  <div class="card">
+    <textarea id="inputArea" placeholder="A->B, B->C, X->Y"></textarea>
+
+    <div class="btn-row">
+      <button class="primary" id="submitBtn">Analyze</button>
+      <button class="secondary" id="sampleBtn">Sample</button>
+      <button class="ghost" id="clearBtn">Clear</button>
+    </div>
+  </div>
+
+  <div id="results"></div>
+
+</div>
+
+<script>
+const SAMPLE = ["A->B","A->C","B->D","X->Y","Y->Z","Z->X"];
+
+sampleBtn.onclick = () => inputArea.value = SAMPLE.join(", ");
+clearBtn.onclick = () => { inputArea.value=""; results.innerHTML=""; };
+
+submitBtn.onclick = async () => {
+  const data = inputArea.value.split(/[\n,]+/).map(s=>s.trim()).filter(Boolean);
+
+  const res = await fetch("/bfhl", {
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body: JSON.stringify({data})
+  });
+
+  const d = await res.json();
+  render(d);
+};
+
+function render(d){
+  let html = "";
+
+  html += `
+  <div class="card">
+    <b>User:</b> ${d.user_id} <br>
+    <b>Email:</b> ${d.email_id}
+  </div>`;
+
+  html += `<div class="summary">`;
+  html += `<div class="summary-card"><h2>${d.summary.total_trees}</h2><p>Trees</p></div>`;
+  html += `<div class="summary-card"><h2>${d.summary.total_cycles}</h2><p>Cycles</p></div>`;
+  html += `<div class="summary-card"><h2>${d.summary.largest_tree_root || "-"}</h2><p>Largest Root</p></div>`;
+  html += `</div>`;
+
+  d.hierarchies.forEach(h=>{
+    html += `
+    <div class="tree ${h.has_cycle?'cycle':''}">
+      <b>${h.root}</b>
+      <div class="visual">${h.has_cycle?'Cycle detected':JSON.stringify(h.tree,null,2)}</div>
+    </div>`;
+  });
+
+  html += `<div class="card"><b>Invalid:</b><br>`;
+  d.invalid_entries.forEach(i=> html+=`<span class="pill invalid">${i}</span>`);
+  html += `</div>`;
+
+  html += `<div class="card"><b>Duplicates:</b><br>`;
+  d.duplicate_edges.forEach(i=> html+=`<span class="pill dup">${i}</span>`);
+  html += `</div>`;
+
+  results.innerHTML = html;
+}
+</script>
+
+</body>
+</html>
