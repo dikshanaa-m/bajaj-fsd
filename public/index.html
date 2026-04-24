@@ -211,7 +211,7 @@ button:hover { background: #21262d; }
 
 <script>
 
-/* ── Escape HTML to prevent XSS ───────────────────────────────────────────── */
+
 function esc(str) {
   return String(str)
     .replace(/&/g, "&amp;")
@@ -219,12 +219,7 @@ function esc(str) {
     .replace(/>/g, "&gt;");
 }
 
-/* ── Convert backend tree object → ASCII art ──────────────────────────────── */
-/*
-  Supports two shapes the backend might return:
-    1. { name: "A", children: [ { name: "B", children: [] }, ... ] }
-    2. { "A": { "B": {}, "C": {} } }   (plain nested object)
-*/
+
 function treeToAscii(node, prefix, isLast) {
   if (prefix  === undefined) prefix  = "";
   if (isLast  === undefined) isLast  = true;
@@ -234,11 +229,11 @@ function treeToAscii(node, prefix, isLast) {
   var label, kids;
 
   if ("name" in node) {
-    // Shape 1
+  
     label = node.name;
     kids  = node.children || [];
   } else {
-    // Shape 2 — first key is root label
+  
     label = Object.keys(node)[0];
     var val = node[label];
     kids = (val && typeof val === "object")
@@ -257,7 +252,7 @@ function treeToAscii(node, prefix, isLast) {
   return result;
 }
 
-/* ── Button events ────────────────────────────────────────────────────────── */
+
 
 document.getElementById("clearBtn").onclick = function() {
   document.getElementById("inputArea").value   = "";
@@ -296,19 +291,19 @@ document.getElementById("submitBtn").onclick = async function() {
   }
 };
 
-/* ── Render response ──────────────────────────────────────────────────────── */
+
 
 function render(d) {
   var html = "";
 
-  /* User info — pulled directly from the JSON the server returns */
+
   html += '<div class="user-card">';
   html += '<b>User: </b><span>'    + esc(d.user_id              || "-") + "</span><br>";
   html += '<b>Email: </b><span>'   + esc(d.email_id             || "-") + "</span><br>";
   html += '<b>Roll No: </b><span>' + esc(d.college_roll_number  || "-") + "</span>";
   html += "</div>";
 
-  /* Summary */
+
   var s = d.summary || {};
   html += '<div class="summary">';
   html += '<div class="summary-card"><h2>' + esc(s.total_trees        || 0)   + "</h2><p>Trees</p></div>";
@@ -316,7 +311,7 @@ function render(d) {
   html += '<div class="summary-card"><h2>' + esc(s.largest_tree_root  || "-") + "</h2><p>Largest Root</p></div>";
   html += "</div>";
 
-  /* Hierarchies */
+
   var hierarchies = d.hierarchies || [];
   hierarchies.forEach(function(h) {
     var cycle = h.has_cycle || false;
@@ -328,7 +323,7 @@ function render(d) {
     html += "</div>";
   });
 
-  /* Invalid entries */
+
   var invalid = d.invalid_entries || [];
   html += '<div class="card"><b>Invalid:</b><br>';
   if (invalid.length === 0) {
@@ -338,7 +333,6 @@ function render(d) {
   }
   html += "</div>";
 
-  /* Duplicate edges */
   var dups = d.duplicate_edges || [];
   html += '<div class="card"><b>Duplicates:</b><br>';
   if (dups.length === 0) {
