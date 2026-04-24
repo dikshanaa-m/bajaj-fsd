@@ -11,7 +11,6 @@
 :root {
   --bg: #0d1117;
   --surface: #161b22;
-  --glass: #161b22;
   --border: #30363d;
   --accent: #3b82f6;
   --accent2: #22c55e;
@@ -29,7 +28,6 @@ body {
   padding: 30px;
 }
 
-/* HEADER */
 header {
   text-align: center;
   margin-bottom: 40px;
@@ -45,13 +43,11 @@ header p {
   margin-top: 8px;
 }
 
-/* CONTAINER */
 .container {
   max-width: 1100px;
   margin: auto;
 }
 
-/* CARD */
 .card {
   background: var(--surface);
   border: 1px solid var(--border);
@@ -60,7 +56,6 @@ header p {
   margin-bottom: 20px;
 }
 
-/* TEXTAREA */
 textarea {
   width: 100%;
   background: #0d1117;
@@ -69,6 +64,9 @@ textarea {
   padding: 14px;
   color: var(--text);
   font-family: monospace;
+  font-size: 0.95rem;
+  min-height: 100px;
+  resize: vertical;
 }
 
 textarea:focus {
@@ -76,7 +74,6 @@ textarea:focus {
   border-color: var(--accent);
 }
 
-/* BUTTONS */
 .btn-row {
   display: flex;
   gap: 10px;
@@ -93,34 +90,31 @@ button {
   color: var(--text);
 }
 
-button:hover {
-  background: #21262d;
-}
+button:hover { background: #21262d; }
 
-.primary {
-  background: var(--accent);
-  color: white;
-  border: none;
-}
+.primary { background: var(--accent); color: white; border: none; }
+.primary:hover { background: #2563eb; }
+.ghost { color: var(--muted); }
 
-.primary:hover {
-  background: #2563eb;
+/* USER INFO */
+.user-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 18px 22px;
+  margin-bottom: 20px;
+  font-size: 0.95rem;
+  line-height: 2;
 }
-
-.secondary {
-  border-color: var(--accent);
-  color: var(--accent);
-}
-
-.ghost {
-  color: var(--muted);
-}
+.user-card b { color: var(--muted); }
+.user-card span { color: var(--text); font-weight: 600; }
 
 /* SUMMARY */
 .summary {
   display: grid;
-  grid-template-columns: repeat(3,1fr);
+  grid-template-columns: repeat(3, 1fr);
   gap: 12px;
+  margin-bottom: 20px;
 }
 
 .summary-card {
@@ -131,10 +125,8 @@ button:hover {
   text-align: center;
 }
 
-.summary-card h2 {
-  font-size: 1.8rem;
-  color: var(--accent);
-}
+.summary-card h2 { font-size: 1.8rem; color: var(--accent); }
+.summary-card p  { color: var(--muted); font-size: 0.85rem; margin-top: 4px; }
 
 /* TREE */
 .tree {
@@ -143,34 +135,56 @@ button:hover {
   margin-bottom: 12px;
   background: var(--surface);
   border-radius: 10px;
+  border: 1px solid var(--border);
 }
 
-.tree.cycle {
-  border-left-color: var(--danger);
+.tree.cycle { border-left-color: var(--danger); }
+
+.tree-root {
+  font-weight: 700;
+  font-size: 1rem;
+  margin-bottom: 10px;
+  color: var(--accent2);
 }
+
+.tree.cycle .tree-root { color: var(--danger); }
 
 .visual {
-  margin-top: 10px;
+  margin-top: 8px;
   font-family: monospace;
+  font-size: 0.88rem;
   background: #0d1117;
-  padding: 10px;
+  padding: 12px;
   border-radius: 6px;
   white-space: pre;
+  overflow-x: auto;
+  color: #a5d6ff;
+  line-height: 1.6;
 }
 
 /* PILLS */
 .pill {
   display: inline-block;
-  padding: 6px 10px;
-  margin: 5px;
+  padding: 5px 10px;
+  margin: 4px;
   border-radius: 6px;
-  font-size: 0.85rem;
+  font-size: 0.84rem;
   background: #21262d;
+  font-family: monospace;
 }
 
-.invalid { color: var(--danger); }
-.dup { color: var(--warn); }
+.invalid  { color: var(--danger); }
+.dup      { color: var(--warn); }
+.none-txt { color: var(--muted); font-size: 0.85rem; }
 
+/* ERROR */
+.error-card {
+  background: var(--surface);
+  border: 1px solid var(--danger);
+  border-radius: 14px;
+  padding: 18px 22px;
+  color: var(--danger);
+}
 </style>
 </head>
 
@@ -185,11 +199,9 @@ button:hover {
 
   <div class="card">
     <textarea id="inputArea" placeholder="A->B, B->C, X->Y"></textarea>
-
     <div class="btn-row">
       <button class="primary" id="submitBtn">Analyze</button>
-      <button class="secondary" id="sampleBtn">Sample</button>
-      <button class="ghost" id="clearBtn">Clear</button>
+      <button class="ghost"   id="clearBtn">Clear</button>
     </div>
   </div>
 
@@ -198,58 +210,147 @@ button:hover {
 </div>
 
 <script>
-const SAMPLE = ["A->B","A->C","B->D","X->Y","Y->Z","Z->X"];
 
-sampleBtn.onclick = () => inputArea.value = SAMPLE.join(", ");
-clearBtn.onclick = () => { inputArea.value=""; results.innerHTML=""; };
+/* ── Escape HTML to prevent XSS ───────────────────────────────────────────── */
+function esc(str) {
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
 
-submitBtn.onclick = async () => {
-  const data = inputArea.value.split(/[\n,]+/).map(s=>s.trim()).filter(Boolean);
+/* ── Convert backend tree object → ASCII art ──────────────────────────────── */
+/*
+  Supports two shapes the backend might return:
+    1. { name: "A", children: [ { name: "B", children: [] }, ... ] }
+    2. { "A": { "B": {}, "C": {} } }   (plain nested object)
+*/
+function treeToAscii(node, prefix, isLast) {
+  if (prefix  === undefined) prefix  = "";
+  if (isLast  === undefined) isLast  = true;
 
-  const res = await fetch("/bfhl", {
-    method:"POST",
-    headers:{"Content-Type":"application/json"},
-    body: JSON.stringify({data})
+  if (!node || typeof node !== "object") return String(node) + "\n";
+
+  var label, kids;
+
+  if ("name" in node) {
+    // Shape 1
+    label = node.name;
+    kids  = node.children || [];
+  } else {
+    // Shape 2 — first key is root label
+    label = Object.keys(node)[0];
+    var val = node[label];
+    kids = (val && typeof val === "object")
+      ? Object.keys(val).map(function(k) { var o = {}; o[k] = val[k]; return o; })
+      : [];
+  }
+
+  var connector   = prefix ? (isLast ? "└── " : "├── ") : "";
+  var childPrefix = prefix + (prefix ? (isLast ? "    " : "│   ") : "");
+  var result      = prefix + connector + label + "\n";
+
+  kids.forEach(function(child, i) {
+    result += treeToAscii(child, childPrefix, i === kids.length - 1);
   });
 
-  const d = await res.json();
-  render(d);
+  return result;
+}
+
+/* ── Button events ────────────────────────────────────────────────────────── */
+
+document.getElementById("clearBtn").onclick = function() {
+  document.getElementById("inputArea").value   = "";
+  document.getElementById("results").innerHTML = "";
 };
 
-function render(d){
-  let html = "";
+document.getElementById("submitBtn").onclick = async function() {
+  var raw = document.getElementById("inputArea").value.trim();
 
-  html += `
-  <div class="card">
-    <b>User:</b> ${d.user_id} <br>
-    <b>Email:</b> ${d.email_id}
-  </div>`;
+  if (!raw) {
+    document.getElementById("results").innerHTML =
+      '<div class="error-card">&#9888; Please enter some edges first.</div>';
+    return;
+  }
 
-  html += `<div class="summary">`;
-  html += `<div class="summary-card"><h2>${d.summary.total_trees}</h2><p>Trees</p></div>`;
-  html += `<div class="summary-card"><h2>${d.summary.total_cycles}</h2><p>Cycles</p></div>`;
-  html += `<div class="summary-card"><h2>${d.summary.largest_tree_root || "-"}</h2><p>Largest Root</p></div>`;
-  html += `</div>`;
+  var data = raw.split(/[\n,]+/).map(function(s){ return s.trim(); }).filter(Boolean);
 
-  d.hierarchies.forEach(h=>{
-    html += `
-    <div class="tree ${h.has_cycle?'cycle':''}">
-      <b>${h.root}</b>
-      <div class="visual">${h.has_cycle?'Cycle detected':JSON.stringify(h.tree,null,2)}</div>
-    </div>`;
+  document.getElementById("results").innerHTML =
+    '<div class="card" style="color:var(--muted);text-align:center;">Analyzing&hellip;</div>';
+
+  try {
+    var res = await fetch("/bfhl", {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({ data: data })
+    });
+
+    if (!res.ok) throw new Error("Server returned " + res.status);
+
+    var d = await res.json();
+    render(d);
+
+  } catch (err) {
+    document.getElementById("results").innerHTML =
+      '<div class="error-card">&#9888; ' + esc(err.message) + '</div>';
+  }
+};
+
+/* ── Render response ──────────────────────────────────────────────────────── */
+
+function render(d) {
+  var html = "";
+
+  /* User info — pulled directly from the JSON the server returns */
+  html += '<div class="user-card">';
+  html += '<b>User: </b><span>'    + esc(d.user_id              || "-") + "</span><br>";
+  html += '<b>Email: </b><span>'   + esc(d.email_id             || "-") + "</span><br>";
+  html += '<b>Roll No: </b><span>' + esc(d.college_roll_number  || "-") + "</span>";
+  html += "</div>";
+
+  /* Summary */
+  var s = d.summary || {};
+  html += '<div class="summary">';
+  html += '<div class="summary-card"><h2>' + esc(s.total_trees        || 0)   + "</h2><p>Trees</p></div>";
+  html += '<div class="summary-card"><h2>' + esc(s.total_cycles       || 0)   + "</h2><p>Cycles</p></div>";
+  html += '<div class="summary-card"><h2>' + esc(s.largest_tree_root  || "-") + "</h2><p>Largest Root</p></div>";
+  html += "</div>";
+
+  /* Hierarchies */
+  var hierarchies = d.hierarchies || [];
+  hierarchies.forEach(function(h) {
+    var cycle = h.has_cycle || false;
+    var ascii = cycle ? "⚠ Cycle detected" : treeToAscii(h.tree).trimEnd();
+
+    html += '<div class="tree ' + (cycle ? "cycle" : "") + '">';
+    html += '<div class="tree-root">' + esc(h.root) + (cycle ? " — CYCLE" : "") + "</div>";
+    html += '<div class="visual">'    + esc(ascii)  + "</div>";
+    html += "</div>";
   });
 
-  html += `<div class="card"><b>Invalid:</b><br>`;
-  d.invalid_entries.forEach(i=> html+=`<span class="pill invalid">${i}</span>`);
-  html += `</div>`;
+  /* Invalid entries */
+  var invalid = d.invalid_entries || [];
+  html += '<div class="card"><b>Invalid:</b><br>';
+  if (invalid.length === 0) {
+    html += '<span class="none-txt">None</span>';
+  } else {
+    invalid.forEach(function(i) { html += '<span class="pill invalid">' + esc(i) + "</span>"; });
+  }
+  html += "</div>";
 
-  html += `<div class="card"><b>Duplicates:</b><br>`;
-  d.duplicate_edges.forEach(i=> html+=`<span class="pill dup">${i}</span>`);
-  html += `</div>`;
+  /* Duplicate edges */
+  var dups = d.duplicate_edges || [];
+  html += '<div class="card"><b>Duplicates:</b><br>';
+  if (dups.length === 0) {
+    html += '<span class="none-txt">None</span>';
+  } else {
+    dups.forEach(function(i) { html += '<span class="pill dup">' + esc(i) + "</span>"; });
+  }
+  html += "</div>";
 
-  results.innerHTML = html;
+  document.getElementById("results").innerHTML = html;
 }
-</script>
 
+</script>
 </body>
 </html>

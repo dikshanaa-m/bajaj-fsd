@@ -8,10 +8,10 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// YOUR DETAILS
-const USER_ID = "yourname_ddmmyyyy";
-const EMAIL_ID = "your@email.com";
-const ROLL_NUMBER = "RAXXXXXXX";
+
+const USER_ID = "dikshanaamuthukumar_12082005";
+const EMAIL_ID = "dikshamuthukumar@gmail.com";
+const ROLL_NUMBER = "RA2311056010148";
 
 app.post("/bfhl", (req, res) => {
   try {
